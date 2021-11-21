@@ -22,7 +22,7 @@ import config as config
 import dataClass as data
 import transformerBlocks as trans
 
-import keras
+import tensorflow.keras as keras
 from keras import applications
 from keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam
@@ -196,10 +196,10 @@ class MODEL():
             # MLP.
             x3 = keras.layers.Dense(
                 2*embedding_dimensions, activation=tf.nn.gelu)(x3)
-            # x3 = keras.layers.Dropout(0.5)(x3)
+            x3 = keras.layers.Dropout(0.1)(x3)
             x3 = keras.layers.Dense(
                 embedding_dimensions, activation=tf.nn.gelu)(x3)
-            # x3 = keras.layers.Dropout(0.5)(x3)
+            # x3 = keras.layers.Dropout(0.1)(x3)
             # Skip connection 2.
             encoded_patches = keras.layers.Add()([x3, x2])
 
@@ -215,7 +215,7 @@ class MODEL():
         # representation = keras.layers.Dropout(0.5)(representation)
 
         features = trans.mlp(representation, hidden_units=[
-                             2048, 1024], dropout_rate=0.5)
+            2048, 1024], dropout_rate=0.5)
 
         classification = keras.layers.Dense(1)(features)
 
@@ -293,7 +293,7 @@ class MODEL():
             1, 1), activation='sigmoid')(outputModel)
         outputModel = keras.layers.UpSampling2D(size=(2, 2))(outputModel)
         final_model = Model(inputs=[input_img], outputs=[
-                            outputModel, global_featuresClass])
+            outputModel, global_featuresClass])
 
         return final_model
 
