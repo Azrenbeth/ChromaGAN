@@ -1,13 +1,14 @@
 import cv2 as cv
 import numpy as np
-import tensorflow as tf
-import keras
-import keras.layers as layers
+import tensorflow.compat.v1 as tf
+import tensorflow.compat.v1.keras as keras
+import tensorflow.compat.v1.keras.layers as layers
+from tensorflow.nn import gelu
 
 import config
 import dataClass as data
 
-tf.compat.v1.experimental.output_all_intermediates(True)
+tf.experimental.output_all_intermediates(True)
 
 
 class TransformerBlock(layers.Layer):
@@ -21,10 +22,7 @@ class TransformerBlock(layers.Layer):
         # self.ffn = keras.Sequential(
         #     [
         #         layers.Dense(2*embedding_dimensions, activation=tf.nn.gelu),
-        #         layers.Dropout(dropout_rate),
-        #         layers.Dense(embedding_dimensions, activation=tf.nn.gelu),
-        #         layers.Dropout(dropout_rate),
-        #     ]
+        #         layers.Dropout(dropout_gelu
         # )
         self.dense1 = layers.Dense(
             2*embedding_dimensions, activation=tf.nn.gelu)
@@ -82,7 +80,7 @@ class PatchEncoder(layers.Layer):
 
 def mlp(x, hidden_units, dropout_rate):
     for units in hidden_units:
-        x = layers.Dense(units, activation=tf.nn.gelu)(x)
+        x = layers.Dense(units, activation=gelu)(x)
         # x = layers.Dropout(dropout_rate)(x)
     return x
 

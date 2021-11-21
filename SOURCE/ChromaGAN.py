@@ -12,7 +12,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import tensorflow as tf
 import numpy as np
 import cv2
 import datetime
@@ -22,15 +21,17 @@ import config as config
 import dataClass as data
 import transformerBlocks as trans
 
+import tensorflow.compat.v1 as tf
 import tensorflow.compat.v1.keras as keras
-from keras import applications
-from keras.callbacks import TensorBoard
-from tensorflow.keras.optimizers import Adam
-from keras.layers import Input
-from keras.layers.merge import _Merge
-from keras.layers.advanced_activations import LeakyReLU
-from keras import backend as K
-from keras.models import load_model, model_from_json, Model
+from tensorflow.compat.v1.keras import applications
+from tensorflow.compat.v1.keras.callbacks import TensorBoard
+from tensorflow.compat.v1.keras.optimizers import Adam
+from tensorflow.compat.v1.keras.layers import Input
+# from tensorflow.compat.v1.keras.layers.merge import _Merge
+# from tensorflow.compat.v1.keras.layers.advanced_activations import LeakyReLU
+from tensorflow.compat.v1.keras import backend as K
+from tensorflow.compat.v1.keras.models import load_model, model_from_json, Model
+from tensorflow.nn import gelu
 
 
 GRADIENT_PENALTY_WEIGHT = 10
@@ -94,11 +95,24 @@ def gradient_penalty_loss(y_true, y_pred, averaged_samples,
     return K.mean(gradient_penalty)
 
 
-class RandomWeightedAverage(_Merge):
+# class RandomWeightedAverage(_Merge):
 
-    def _merge_function(self, inputs):
-        weights = K.random_uniform((config.BATCH_SIZE, 1, 1, 1))
-        return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+#     def _merge_function(self, inputs):
+#         weights = K.random_uniform((config.BATCH_SIZE, 1, 1, 1))
+#         return (weights * inputs[0]) + ((1 - weights) * inputs[1])
+
+
+class RandomWeightedAverage(keras.layers.Layer):
+    def __init__(self, batch_size):
+        super().__init__()
+        self.batch_size = batch_size
+
+    def call(self, inputs, **kwargs):
+        alpha = tf.random_uniform((self.batch_size, 1, 1, 1))
+        return (alpha * inputs[0]) + ((1 - alpha) * inputs[1])
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
 
 
 class MODEL():
@@ -128,8 +142,8 @@ class MODEL():
         discriminator_output_from_real_samples = self.discriminator(
             [img_ab_real, img_L])
 
-        averaged_samples = RandomWeightedAverage()([img_ab_real,
-                                                    predAB])
+        averaged_samples = RandomWeightedAverage(config.BATCH_SIZE)([img_ab_real,
+                                                                     predAB])
         averaged_samples_out = self.discriminator([averaged_samples, img_L])
         partial_gp_loss = partial(gradient_penalty_loss,
                                   averaged_samples=averaged_samples,
@@ -195,10 +209,10 @@ class MODEL():
             x3 = keras.layers.LayerNormalization(epsilon=1e-6)(x2)
             # MLP.
             x3 = keras.layers.Dense(
-                2*embedding_dimensions, activation=tf.nn.gelu)(x3)
+                2*embedding_dimensions, activation=gelu)(x3)
             x3 = keras.layers.Dropout(0.1)(x3)
             x3 = keras.layers.Dense(
-                embedding_dimensions, activation=tf.nn.gelu)(x3)
+                embedding_dimensions, activation=gelu)(x3)
             # x3 = keras.layers.Dropout(0.1)(x3)
             # Skip connection 2.
             encoded_patches = keras.layers.Add()([x3, x2])
