@@ -22,7 +22,7 @@ import config as config
 import dataClass as data
 import transformerBlocks as trans
 
-import tensorflow.keras as keras
+import tensorflow.compat.v1.keras as keras
 from keras import applications
 from keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam
