@@ -34,7 +34,7 @@ from keras.models import load_model, model_from_json, Model
 tf.config.LogicalDeviceConfiguration(experimental_priority=-2)
 GRADIENT_PENALTY_WEIGHT = 10
 
-tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.disable_eager_execution()
 
 
 def deprocess(imgs):
@@ -98,6 +98,56 @@ class RandomWeightedAverage(_Merge):
         weights = K.random_uniform((config.BATCH_SIZE * config.SEQUENCE_LENGTH, 1, 1, 1))
         return (weights * inputs[0]) + ((1 - weights) * inputs[1])
 
+class WrappedDiscriminatorModel(keras.Model):
+    def __init__(
+        self,
+        discriminator,
+        # predAB,
+        # discPredAB,
+        # discriminator_output_from_real_samples
+    ):
+        super(WrappedDiscriminatorModel, self).__init__()
+        self.discriminator = discriminator
+        # self.predAB = predAB
+        # self.discPredAB = discPredAB
+        # self.discriminator_output_from_real_samples = discriminator_output_from_real_samples
+    
+    def compile(self, optimizer):
+        super(WrappedDiscriminatorModel, self).compile()
+        self.optimizer = optimizer
+    
+    def gradient_penalty(self, img_ab_real, predAB, img_L, gradient_penalty_weight = 10):
+        averaged_samples = RandomWeightedAverage()([img_ab_real,
+                                                    predAB])
+        print(averaged_samples)
+        with tf.GradientTape() as gp_tape:
+            gp_tape.watch(averaged_samples)
+            averaged_samples_out = self.discriminator([averaged_samples, img_L], training=True)
+
+        gradients = gp_tape.gradient(averaged_samples_out, [averaged_samples])
+        gradients_sqr = K.square(gradients)
+        gradients_sqr_sum = K.sum(gradients_sqr,
+                                axis=np.arange(1, len(gradients_sqr.shape)))
+        gradient_l2_norm = K.sqrt(gradients_sqr_sum)
+        gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
+        return K.mean(gradient_penalty)
+    
+    def train_step(self, data):
+        img_L, img_ab_real, predAB = data[0]
+        # print("img_ab_real: ", img_ab_real)
+        # print("predAB: ", self.predAB)
+        with tf.GradientTape() as tape:
+            discPredAB = self.discriminator([predAB, img_L], training=True)
+            discriminator_output_from_real_samples = self.discriminator(
+                [img_ab_real, img_L], training=True)
+            d_loss = -wasserstein_loss(None, discriminator_output_from_real_samples)
+            d_loss += wasserstein_loss(None, discPredAB) 
+            d_loss += self.gradient_penalty(img_ab_real, predAB, img_L)
+        d_gradient = tape.gradient(d_loss, self.discriminator.trainable_variables)
+        self.optimizer.apply_gradients(
+            zip(d_gradient, self.discriminator.trainable_variables)
+        )
+        return { "loss": [d_loss] }
 
 class MODEL():
 
@@ -122,27 +172,31 @@ class MODEL():
 
         self.colorizationModel.trainable = False
         predAB, classVector = self.colorizationModel(img_L_3)
+
         discPredAB = self.discriminator([predAB, img_L])
-        discriminator_output_from_real_samples = self.discriminator(
-            [img_ab_real, img_L])
+        # discriminator_output_from_real_samples = self.discriminator(
+        #     [img_ab_real, img_L])
 
-        averaged_samples = RandomWeightedAverage()([img_ab_real,
-                                                    predAB])
-        averaged_samples_out = self.discriminator([averaged_samples, img_L])
-        partial_gp_loss = partial(gradient_penalty_loss,
-                                  averaged_samples=averaged_samples,
-                                  gradient_penalty_weight=GRADIENT_PENALTY_WEIGHT)
-        partial_gp_loss.__name__ = 'gradient_penalty'
+        # averaged_samples = RandomWeightedAverage()([img_ab_real,
+        #                                             predAB])
+        # averaged_samples_out = self.discriminator([averaged_samples, img_L])
+        # partial_gp_loss = partial(gradient_penalty_loss,
+        #                           averaged_samples=averaged_samples,
+        #                           gradient_penalty_weight=GRADIENT_PENALTY_WEIGHT)
+        # partial_gp_loss.__name__ = 'gradient_penalty'
 
-        self.discriminator_model = Model(inputs=[img_L, img_ab_real, img_L_3],
-                                         outputs=[discriminator_output_from_real_samples,
-                                                  discPredAB,
-                                                  averaged_samples_out])
+        # self.discriminator_model = Model(inputs=[img_L, img_ab_real, img_L_3],
+        #                                  outputs=[discriminator_output_from_real_samples,
+        #                                           discPredAB,
+        #                                           averaged_samples_out])
 
-        self.discriminator_model.compile(optimizer=optimizer,
-                                         loss=[wasserstein_loss,
-                                               wasserstein_loss,
-                                               partial_gp_loss], loss_weights=[-1.0, 1.0, 1.0])
+        # self.discriminator_model.compile(optimizer=optimizer,
+        #                                  loss=[wasserstein_loss,
+        #                                        wasserstein_loss,
+        #                                        partial_gp_loss], loss_weights=[-1.0, 1.0, 1.0])
+
+        self.discriminator_model = WrappedDiscriminatorModel(self.discriminator)
+        self.discriminator_model.compile(optimizer)
 
         self.colorizationModel.trainable = True
         self.discriminator.trainable = False
@@ -292,9 +346,12 @@ class MODEL():
                 # train generator
                 g_loss = self.combined.train_on_batch([l_3, trainL],
                                                       [trainAB, predictVGG, positive_y])
+
+                predAB, _ = self.colorizationModel(l_3)
+
                 # train discriminator
                 d_loss = self.discriminator_model.train_on_batch(
-                    [trainL, trainAB, l_3], [positive_y, negative_y, dummy_y])
+                    [trainL, trainAB, predAB], [positive_y, negative_y, dummy_y])
 
                 # update log files
                 write_log(self.callback, self.train_names,
