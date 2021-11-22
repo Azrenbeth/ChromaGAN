@@ -13,7 +13,6 @@
 
 import os
 import tensorflow as tf
-import config as config
 import numpy as np
 import cv2
 import dataClass as data
@@ -21,20 +20,22 @@ import dataClassDali as data_dali
 import datetime
 from functools import partial
 
+import config as config
+import dataClass as data
+import transformerBlocks as trans
+import wrappedDiscModel as wrapper
+
 import keras
 from keras import applications
 from keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam
 from keras.layers import Input
-from keras.layers.merge import _Merge
 from keras.layers.advanced_activations import LeakyReLU
 from keras import backend as K
 from keras.models import load_model, model_from_json, Model
 
-tf.config.LogicalDeviceConfiguration(experimental_priority=-2)
-GRADIENT_PENALTY_WEIGHT = 10
-
-tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.disable_eager_execution()
+tf.compat.v1.experimental.output_all_intermediates(True)
 
 
 def deprocess(imgs):
@@ -80,25 +81,6 @@ def wasserstein_loss(y_true, y_pred):
     return tf.reduce_mean(y_pred)
 
 
-def gradient_penalty_loss(y_true, y_pred, averaged_samples,
-                          gradient_penalty_weight):
-
-    gradients = K.gradients(y_pred, averaged_samples)[0]
-    gradients_sqr = K.square(gradients)
-    gradients_sqr_sum = K.sum(gradients_sqr,
-                              axis=np.arange(1, len(gradients_sqr.shape)))
-    gradient_l2_norm = K.sqrt(gradients_sqr_sum)
-    gradient_penalty = gradient_penalty_weight * K.square(1 - gradient_l2_norm)
-    return K.mean(gradient_penalty)
-
-
-class RandomWeightedAverage(_Merge):
-
-    def _merge_function(self, inputs):
-        weights = K.random_uniform((config.BATCH_SIZE * config.SEQUENCE_LENGTH, 1, 1, 1))
-        return (weights * inputs[0]) + ((1 - weights) * inputs[1])
-
-
 class MODEL():
 
     def __init__(self):
@@ -108,7 +90,7 @@ class MODEL():
         self.img_shape_3 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 3)
 
         optimizer = Adam(0.00002, 0.5)
-        self.discriminator = self.discriminator()
+        self.discriminator = self.discriminator_new()
         self.discriminator.compile(loss=wasserstein_loss,
                                    optimizer=optimizer)
 
@@ -126,23 +108,13 @@ class MODEL():
         discriminator_output_from_real_samples = self.discriminator(
             [img_ab_real, img_L])
 
-        averaged_samples = RandomWeightedAverage()([img_ab_real,
-                                                    predAB])
-        averaged_samples_out = self.discriminator([averaged_samples, img_L])
-        partial_gp_loss = partial(gradient_penalty_loss,
-                                  averaged_samples=averaged_samples,
-                                  gradient_penalty_weight=GRADIENT_PENALTY_WEIGHT)
-        partial_gp_loss.__name__ = 'gradient_penalty'
+        self.discriminator_model = wrapper.WrappedDiscriminatorModel(inputs=[img_L, img_ab_real, img_L_3],
+                                                                     outputs=[discriminator_output_from_real_samples,
+                                                                              discPredAB],
+                                                                     discriminator=self.discriminator,
+                                                                     colourer=self.colorizationModel)
 
-        self.discriminator_model = Model(inputs=[img_L, img_ab_real, img_L_3],
-                                         outputs=[discriminator_output_from_real_samples,
-                                                  discPredAB,
-                                                  averaged_samples_out])
-
-        self.discriminator_model.compile(optimizer=optimizer,
-                                         loss=[wasserstein_loss,
-                                               wasserstein_loss,
-                                               partial_gp_loss], loss_weights=[-1.0, 1.0, 1.0])
+        self.discriminator_model.compile(optimizer=optimizer)
 
         self.colorizationModel.trainable = True
         self.discriminator.trainable = False
@@ -161,6 +133,61 @@ class MODEL():
 
         self.test_loss_array = []
         self.g_loss_array = []
+
+    def discriminator_new(self):
+
+        input_ab = Input(shape=self.img_shape_2, name='ab_input')
+        input_l = Input(shape=self.img_shape_1, name='l_input')
+        net = keras.layers.concatenate([input_l, input_ab])
+
+        patch_size = 8
+        num_patches = int(config.IMAGE_SIZE/patch_size) ** 2
+        embedding_dimensions = 64
+        num_heads = 8
+
+        patches = trans.Patches(patch_size)(net)
+        encoded_patches = trans.PatchEncoder(
+            num_patches, embedding_dimensions)(patches)
+
+        for _ in range(4):
+            # Layer normalization 1.
+            x1 = keras.layers.LayerNormalization(epsilon=1e-6)(encoded_patches)
+            # Create a multi-head attention layer.
+            attention_output = keras.layers.MultiHeadAttention(
+                num_heads=num_heads, key_dim=embedding_dimensions, dropout=0.1
+            )(x1, x1)
+
+            # Skip connection 1.
+            x2 = keras.layers.Add()([attention_output, encoded_patches])
+            # Layer normalization 2.
+            x3 = keras.layers.LayerNormalization(epsilon=1e-6)(x2)
+            # MLP.
+            x3 = keras.layers.Dense(
+                2*embedding_dimensions, activation=tf.nn.gelu)(x3)
+            x3 = keras.layers.Dropout(0.1)(x3)
+            x3 = keras.layers.Dense(
+                embedding_dimensions, activation=tf.nn.gelu)(x3)
+            x3 = keras.layers.Dropout(0.1)(x3)
+            # Skip connection 2.
+            encoded_patches = keras.layers.Add()([x3, x2])
+
+            # encoded_patches = trans.TransformerBlock(
+            #     num_heads,
+            #     embedding_dimensions,
+            #     dropout_rate=0.1,
+            # )(encoded_patches)
+
+        representation = keras.layers.LayerNormalization(
+            epsilon=1e-6)(encoded_patches)
+        representation = keras.layers.Flatten()(representation)
+        representation = keras.layers.Dropout(0.5)(representation)
+
+        features = trans.mlp(representation, hidden_units=[
+                             2048, 1024], dropout_rate=0.5)
+
+        classification = keras.layers.Dense(1)(features)
+
+        return Model(inputs=[input_ab, input_l], outputs=classification)
 
     def discriminator(self):
 
@@ -271,9 +298,9 @@ class MODEL():
             weights='imagenet', include_top=True)
 
         # Real, Fake and Dummy for Discriminator
-        positive_y = np.ones((config.BATCH_SIZE * config.SEQUENCE_LENGTH, 1), dtype=np.float32)
+        positive_y = np.ones(
+            (config.BATCH_SIZE * config.SEQUENCE_LENGTH, 1), dtype=np.float32)
         negative_y = -positive_y
-        dummy_y = np.zeros((config.BATCH_SIZE * config.SEQUENCE_LENGTH, 1), dtype=np.float32)
 
         # total number of batches in one epoch
         total_batch = int(data.size/config.BATCH_SIZE)
@@ -283,7 +310,7 @@ class MODEL():
                 # new batch
                 #trainL, trainAB, _, original, l_img_oritList = data.generate_batch()
                 #l_3 = np.tile(trainL, [1, 1, 1, 3])
-                
+
                 trainL, trainAB, l_3 = data.generate_batch()
 
                 # GT vgg
@@ -294,7 +321,7 @@ class MODEL():
                                                       [trainAB, predictVGG, positive_y])
                 # train discriminator
                 d_loss = self.discriminator_model.train_on_batch(
-                    [trainL, trainAB, l_3], [positive_y, negative_y, dummy_y])
+                    [trainL, trainAB, l_3], [positive_y, negative_y])
 
                 # update log files
                 write_log(self.callback, self.train_names,
@@ -352,7 +379,8 @@ if __name__ == '__main__':
 
         print('load training data from ' + config.TRAIN_DIR)
         #train_data = data.DATA(config.TRAIN_DIR)
-        train_data = data_dali.VideoDataLoader(config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE)
+        train_data = data_dali.VideoDataLoader(
+            config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE)
         test_data = data.DATA(config.TEST_DIR)
         assert config.BATCH_SIZE <= train_data.size, "The batch size should be smaller or equal to the number of training images --> modify it in config.py"
         print("Train data loaded")
