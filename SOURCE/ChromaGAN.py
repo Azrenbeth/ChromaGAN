@@ -140,7 +140,7 @@ class MODEL():
         input_l = Input(shape=self.img_shape_1, name='l_input')
         net = keras.layers.concatenate([input_l, input_ab])
 
-        patch_size = 16
+        patch_size = 32
         num_patches = int(config.IMAGE_SIZE/patch_size) ** 2
         embedding_dimensions = 64
         num_heads = num_patches
