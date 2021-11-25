@@ -174,16 +174,16 @@ class MODEL():
             encoded_patches = trans.TransformerBlock(
                 num_heads,
                 embedding_dimensions,
-                dropout_rate=0.1,
+                dropout_rate=0.0,
             )(encoded_patches)
 
         representation = keras.layers.LayerNormalization(
             epsilon=1e-6)(encoded_patches)
         representation = keras.layers.Flatten()(representation)
-        representation = keras.layers.Dropout(0.5)(representation)
+        representation = keras.layers.Dropout(0.0)(representation)
 
         features = trans.mlp(representation, hidden_units=[
-                             2048, 1024], dropout_rate=0.5)
+                             2048, 1024], dropout_rate=0.0)
 
         classification = keras.layers.Dense(1)(features)
 

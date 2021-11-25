@@ -41,7 +41,7 @@ class TransformerBlock(layers.Layer):
         config.update({
             "num_heads": self.num_heads,
             "embedding_dimensions": self.embedding_dimensions,
-            "dropout_rate": self.dropout_rates,
+            "dropout_rate": self.dropout_rate,
         })
         return config
 
