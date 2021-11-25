@@ -13,6 +13,10 @@ tf.compat.v1.experimental.output_all_intermediates(True)
 class TransformerBlock(layers.Layer):
     def __init__(self, num_heads, embedding_dimensions, dropout_rate):
         super().__init__()
+        self.num_heads = num_heads
+        self.embedding_dimensions = embedding_dimensions
+        self.dropout_rate = dropout_rate
+
         self.layer_norm1 = layers.LayerNormalization(epsilon=1e-6)
         self.layer_norm2 = layers.LayerNormalization(epsilon=1e-6)
         self.att = layers.MultiHeadAttention(
@@ -31,6 +35,15 @@ class TransformerBlock(layers.Layer):
         # self.drop1 = layers.Dropout(dropout_rate)
         # self.dense2 = layers.Dense(embedding_dimensions, activation=tf.nn.gelu)
         # self.drop2 = layers.Dropout(dropout_rate)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "num_heads": self.num_heads,
+            "embedding_dimensions": self.embedding_dimensions,
+            "dropout_rate": self.dropout_rates,
+        })
+        return config
 
     def call(self, patches):
         x1 = self.layer_norm1(patches)
