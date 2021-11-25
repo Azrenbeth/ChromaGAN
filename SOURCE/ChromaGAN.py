@@ -306,32 +306,42 @@ class MODEL():
         total_batch = int(data.size/config.BATCH_SIZE)
 
         for epoch in range(config.NUM_EPOCHS):
+            disc_batches = 0
             for batch in range(total_batch):
-                # new batch
-                #trainL, trainAB, _, original, l_img_oritList = data.generate_batch()
-                #l_3 = np.tile(trainL, [1, 1, 1, 3])
-
                 trainL, trainAB, l_3 = data.generate_batch()
 
-                # GT vgg
-                predictVGG = VGG_modelF.predict(l_3, steps=1)
+                if disc_batches < config.DISC_BATCHES:
+                    disc_batches += 1
 
-                # train generator
-                g_loss = self.combined.train_on_batch([l_3, trainL],
-                                                      [trainAB, predictVGG, positive_y])
-                # train discriminator
-                d_loss = self.discriminator_model.train_on_batch(
-                    [trainL, trainAB, l_3], [positive_y, negative_y])
+                    d_loss = self.discriminator_model.train_on_batch(
+                        [trainL, trainAB, l_3],
+                        [positive_y, negative_y]
+                    )
 
-                # update log files
-                write_log(self.callback, self.train_names,
-                          g_loss, (epoch*total_batch+batch+1))
-                write_log(self.callback, self.disc_names,
-                          d_loss, (epoch*total_batch+batch+1))
+                    if (batch) % 1 == 0:
+                        print("[Epoch %d] [Batch %d/%d] [generator loss: N/A] [discriminator loss: %08f]" %
+                              (epoch, batch, total_batch, d_loss[0]))
 
-                if (batch) % 1 == 0:
-                    print("[Epoch %d] [Batch %d/%d] [generator loss: %08f] [discriminator loss: %08f]" %
-                          (epoch, batch, total_batch, g_loss[0], d_loss[0]))
+                else:
+                    disc_batches = 0
+
+                    # GT vgg
+                    predictVGG = VGG_modelF.predict(l_3, steps=1)
+
+                    # train generator
+                    g_loss = self.combined.train_on_batch([l_3, trainL],
+                                                          [trainAB, predictVGG, positive_y])
+
+                    if (batch) % 1 == 0:
+                        print("[Epoch %d] [Batch %d/%d] [generator loss: %08f] [discriminator loss: N/A]" %
+                              (epoch, batch, total_batch, g_loss[0]))
+
+                # # update log files
+                # write_log(self.callback, self.train_names,
+                #           g_loss, (epoch*total_batch+batch+1))
+                # write_log(self.callback, self.disc_names,
+                #           d_loss, (epoch*total_batch+batch+1))
+
             # save models after each epoch
             save_path = os.path.join(
                 # save_models_path, "my_model_combinedEpoch%d.h5" % epoch)
@@ -378,7 +388,7 @@ if __name__ == '__main__':
         log.write(str(datetime.datetime.now()) + "\n")
 
         print('load training data from ' + config.TRAIN_DIR)
-        #train_data = data.DATA(config.TRAIN_DIR)
+        # train_data = data.DATA(config.TRAIN_DIR)
         train_data = data_dali.VideoDataLoader(
             config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE)
         test_data = data.DATA(config.TEST_DIR)
