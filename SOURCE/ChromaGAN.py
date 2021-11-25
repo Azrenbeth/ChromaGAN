@@ -93,6 +93,7 @@ class MODEL():
         self.discriminator = self.discriminator_new()
         self.discriminator.compile(loss=wasserstein_loss,
                                    optimizer=optimizer)
+        print(self.discriminator.summary())
 
         self.colorizationModel = self.colorization_model()
         self.colorizationModel.compile(loss=['mse', 'kld'],
@@ -140,9 +141,10 @@ class MODEL():
         input_l = Input(shape=self.img_shape_1, name='l_input')
         net = keras.layers.concatenate([input_l, input_ab])
 
-        patch_size = 8
-        num_patches = int(config.IMAGE_SIZE/patch_size) ** 2
-        embedding_dimensions = 64
+        patch_size = 28
+        num_patches_1d = int(config.IMAGE_SIZE / patch_size)
+        num_patches = num_patches_1d ** 2
+        embedding_dimensions = patch_size ** 2
         num_heads = 8
 
         patches = trans.Patches(patch_size)(net)
@@ -179,13 +181,12 @@ class MODEL():
 
         representation = keras.layers.LayerNormalization(
             epsilon=1e-6)(encoded_patches)
-        representation = keras.layers.Flatten()(representation)
+        # representation = keras.layers.Flatten()(representation)
         representation = keras.layers.Dropout(0.5)(representation)
 
-        features = trans.mlp(representation, hidden_units=[
-                             2048, 1024], dropout_rate=0.5)
+        features = trans.mlp(representation, hidden_units=[512, 64], dropout_rate=0.5)
 
-        classification = keras.layers.Dense(1)(features)
+        classification = tf.reshape(keras.layers.Dense(1)(features), (-1, num_patches_1d, num_patches_1d, 1))
 
         return Model(inputs=[input_ab, input_l], outputs=classification)
 
