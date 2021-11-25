@@ -30,11 +30,6 @@ class TransformerBlock(layers.Layer):
                 layers.Dropout(dropout_rate),
             ]
         )
-        # self.dense1 = layers.Dense(
-        #     2*embedding_dimensions, activation=tf.nn.gelu)
-        # self.drop1 = layers.Dropout(dropout_rate)
-        # self.dense2 = layers.Dense(embedding_dimensions, activation=tf.nn.gelu)
-        # self.drop2 = layers.Dropout(dropout_rate)
 
     def get_config(self):
         config = super().get_config()
@@ -47,15 +42,10 @@ class TransformerBlock(layers.Layer):
 
     def call(self, patches):
         x1 = self.layer_norm1(patches)
-        # x2 = self.att(x1, x1)
-        x2 = x1
+        x2 = self.att(x1, x1)
         x3 = x1 + x2
         x4 = self.layer_norm2(x3)
         x4 = self.ffn(x4)
-        # x4 = self.dense1(x4)
-        # x4 = self.drop1(x4)
-        # x4 = self.dense2(x4)
-        # x4 = self.drop2(x4)
         return x3+x4
 
 
