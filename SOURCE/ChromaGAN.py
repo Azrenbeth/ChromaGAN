@@ -346,7 +346,10 @@ class MODEL():
             save_path = os.path.join(
                 # save_models_path, "my_model_combinedEpoch%d.h5" % epoch)
                 save_models_path, "my_model_combined.h5")
+
+            # UNCOMMENT TO SAVE
             self.combined.save(save_path)
+
             # save_path = os.path.join(
             #     save_models_path, "my_model_colorizationEpoch%d.h5" % epoch)
             # self.colorizationModel.save(save_path)
@@ -375,6 +378,9 @@ class MODEL():
                 labimg_ori = np.expand_dims(labimg_oritList[i], axis=2)
                 predResult = reconstruct(
                     deprocess(labimg_ori), predictedAB, "epoch"+str(epoch)+"_"+filelist[i][:-5])
+
+                # UNCOMMENT TO ONLY SAMPLE 1 image
+                return
 
 
 if __name__ == '__main__':
