@@ -145,7 +145,7 @@ class MODEL():
         num_patches_1d = int(config.IMAGE_SIZE / patch_size)
         num_patches = num_patches_1d ** 2
         embedding_dimensions = patch_size ** 2
-        num_heads = 8
+        num_heads = num_patches
 
         patches = trans.Patches(patch_size)(net)
         encoded_patches = trans.PatchEncoder(
@@ -337,7 +337,7 @@ class MODEL():
             save_path = os.path.join(
                 # save_models_path, "my_model_combinedEpoch%d.h5" % epoch)
                 save_models_path, "my_model_combined.h5")
-            self.combined.save(save_path)
+            # self.combined.save(save_path)
             # save_path = os.path.join(
             #     save_models_path, "my_model_colorizationEpoch%d.h5" % epoch)
             # self.colorizationModel.save(save_path)
@@ -366,6 +366,7 @@ class MODEL():
                 labimg_ori = np.expand_dims(labimg_oritList[i], axis=2)
                 predResult = reconstruct(
                     deprocess(labimg_ori), predictedAB, "epoch"+str(epoch)+"_"+filelist[i][:-5])
+                return
 
 
 if __name__ == '__main__':
