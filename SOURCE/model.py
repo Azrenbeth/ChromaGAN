@@ -7,6 +7,8 @@ from keras.models import Model
 from keras import applications
 from keras.layers import advanced_activations
 
+import transformerBlocks as trans
+
 
 class WGAN(keras.Model):
     def __init__(
@@ -115,7 +117,7 @@ img_shape_2 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 2)
 img_shape_3 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 3)
 
 
-def get_discriminator():
+def get_conv_discriminator():
     input_ab = Input(shape=img_shape_2, name='ab_input')
     input_l = Input(shape=img_shape_1, name='l_input')
     net = keras.layers.concatenate([input_l, input_ab])
@@ -134,6 +136,46 @@ def get_discriminator():
     net = keras.layers.Conv2D(
         1, (4, 4), padding='same', strides=(1, 1))(net)  # 28, 28,1
     return Model([input_ab, input_l], net)
+
+
+def get_trans_discriminator():
+    input_ab = Input(shape=img_shape_2, name='ab_input')
+    input_l = Input(shape=img_shape_1, name='l_input')
+    net = keras.layers.concatenate([input_l, input_ab])
+
+    patch_size = 28
+    num_patches_1d = int(config.IMAGE_SIZE / patch_size)
+    num_patches = num_patches_1d ** 2
+    embedding_dimensions = patch_size ** 2
+    num_heads = num_patches
+
+    patches = trans.Patches(patch_size)(net)
+    encoded_patches = trans.PatchEncoder(
+        num_patches, embedding_dimensions)(patches)
+
+    for _ in range(4):
+        encoded_patches = trans.TransformerBlock(
+            num_heads,
+            embedding_dimensions,
+            dropout_rate=0.1,
+        )(encoded_patches)
+
+    representation = keras.layers.LayerNormalization(
+        epsilon=1e-6)(encoded_patches)
+    representation = keras.layers.Dropout(0.5)(representation)
+
+    features = trans.mlp(
+        representation,
+        hidden_units=[512, 64],
+        dropout_rate=0.5
+    )
+
+    classification = tf.reshape(
+        keras.layers.Dense(1)(features),
+        (-1, num_patches_1d, num_patches_1d, 1)
+    )
+
+    return Model(inputs=[input_ab, input_l], outputs=classification)
 
 
 def get_generator():

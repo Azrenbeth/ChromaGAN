@@ -12,8 +12,6 @@ from keras import applications
 from tensorflow.keras.optimizers import Adam
 
 
-# tf.compat.v1.disable_eager_execution()
-
 def train(model, data, test_data):
     # Create folder to save models if needed.
     save_models_path = os.path.join(config.MODEL_DIR, config.TEST_NAME)
@@ -58,7 +56,7 @@ if __name__ == '__main__':
 
     # Create model
     print("Initializing model...")
-    discriminator = model.get_discriminator()
+    discriminator = model.get_conv_discriminator()
     generator = model.get_generator()
 
     vgg_model = applications.vgg16.VGG16(weights='imagenet', include_top=True)
