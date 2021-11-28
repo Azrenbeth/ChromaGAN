@@ -30,20 +30,21 @@ def reconstruct_no(batchX, predictedY):
 
 
 def sample_images(colorization_model, test_data, epoch):
-    total_batch = int(test_data.size/config.BATCH_SIZE)
-    for _ in range(total_batch):
-        # load test data
-        testL, _,  filelist, original, labimg_oritList = test_data.generate_batch()
+    # reset index so get same images each time
+    test_data.data_index = 0
 
-        # predict AB channels
-        predAB, _ = colorization_model.predict(
-            np.tile(testL, [1, 1, 1, 3]))
+    # load test data
+    testL, _,  filelist, original, labimg_oritList = test_data.generate_batch()
 
-        # print results
-        for i in range(config.BATCH_SIZE):
-            originalResult = original[i]
-            height, width, channels = originalResult.shape
-            predictedAB = cv2.resize(deprocess(predAB[i]), (width, height))
-            labimg_ori = np.expand_dims(labimg_oritList[i], axis=2)
-            predResult = reconstruct(
-                deprocess(labimg_ori), predictedAB, "epoch"+str(epoch)+"_"+filelist[i][:-5])
+    # predict AB channels
+    predAB, _ = colorization_model.predict(
+        np.tile(testL, [1, 1, 1, 3]))
+
+    # print results
+    for i in range(test_data.batch_size):
+        originalResult = original[i]
+        height, width, channels = originalResult.shape
+        predictedAB = cv2.resize(deprocess(predAB[i]), (width, height))
+        labimg_ori = np.expand_dims(labimg_oritList[i], axis=2)
+        predResult = reconstruct(
+            deprocess(labimg_ori), predictedAB, "epoch"+str(epoch)+"_"+filelist[i][:-4])

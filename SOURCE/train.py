@@ -50,7 +50,7 @@ if __name__ == '__main__':
     #train_data = data.DATA(config.TRAIN_DIR)
     train_data = data_dali.VideoDataLoader(
         config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE)
-    test_data = data.DATA(config.TEST_DIR)
+    test_data = data.DATA(config.TEST_DIR, batch_size=5)
     assert config.BATCH_SIZE <= train_data.size, "The batch size should be smaller or equal to the number of training images --> modify it in config.py"
     print("Training data loaded")
 
