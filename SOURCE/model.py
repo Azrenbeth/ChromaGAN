@@ -13,14 +13,12 @@ class WGAN(keras.Model):
         discriminator,
         generator,
         vgg_model,
-        discriminator_extra_steps=1,
         gp_weight=10.0,
     ):
         super(WGAN, self).__init__()
         self.discriminator = discriminator
         self.generator = generator
         self.vgg_model = vgg_model
-        self.d_steps = discriminator_extra_steps
         self.gp_weight = gp_weight
 
     def compile(self, d_optimizer, g_optimizer, d_loss_fn, g_loss_fn):
@@ -66,7 +64,7 @@ class WGAN(keras.Model):
             # Generate fake images using the generator
             img_ab_fake, class_vector_pred = self.generator(img_L_3, training=True)
             # Get the discriminator logits for fake images
-            gen_img_logits = self.discriminator([img_ab_fake, img_L], training=True)
+            gen_img_logits = self.discriminator([img_ab_fake, img_L], training=False)
             # Calculate the generator loss
             g_loss = self.g_loss_fn(img_ab_real, img_ab_fake, class_vector_real, class_vector_pred, gen_img_logits)
 
@@ -80,7 +78,7 @@ class WGAN(keras.Model):
         # Train the discriminator
         with tf.GradientTape() as tape:
             # Generate fake images
-            img_ab_fake, _ = self.generator(img_L_3, training=True)
+            img_ab_fake, _ = self.generator(img_L_3, training=False)
             # Get the logits for the fake images
             fake_logits = self.discriminator([img_ab_fake, img_L], training=True)
             # Get the logits for the real images
