@@ -1,13 +1,16 @@
 import tensorflow as tf
 from keras import losses
 
+
 def d_loss_fn(real_img, fake_img):
     real_loss = tf.reduce_mean(real_img)
     fake_loss = tf.reduce_mean(fake_img)
     return fake_loss - real_loss
 
+
 mse = losses.MeanSquaredError()
 kld = losses.KLDivergence()
+
 
 def g_loss_fn(img_ab_real, img_ab_fake, class_vector_real, class_vector_pred, gen_img_logits):
     mse_val = mse(img_ab_real, img_ab_fake)

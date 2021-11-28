@@ -184,9 +184,11 @@ class MODEL():
         # representation = keras.layers.Flatten()(representation)
         representation = keras.layers.Dropout(0.5)(representation)
 
-        features = trans.mlp(representation, hidden_units=[512, 64], dropout_rate=0.5)
+        features = trans.mlp(representation, hidden_units=[
+                             512, 64], dropout_rate=0.5)
 
-        classification = tf.reshape(keras.layers.Dense(1)(features), (-1, num_patches_1d, num_patches_1d, 1))
+        classification = tf.reshape(keras.layers.Dense(1)(
+            features), (-1, num_patches_1d, num_patches_1d, 1))
 
         return Model(inputs=[input_ab, input_l], outputs=classification)
 

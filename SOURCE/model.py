@@ -7,6 +7,7 @@ from keras.models import Model
 from keras import applications
 from keras.layers import advanced_activations
 
+
 class WGAN(keras.Model):
     def __init__(
         self,
@@ -62,14 +63,18 @@ class WGAN(keras.Model):
         # Train the generator
         with tf.GradientTape() as tape:
             # Generate fake images using the generator
-            img_ab_fake, class_vector_pred = self.generator(img_L_3, training=True)
+            img_ab_fake, class_vector_pred = self.generator(
+                img_L_3, training=True)
             # Get the discriminator logits for fake images
-            gen_img_logits = self.discriminator([img_ab_fake, img_L], training=False)
+            gen_img_logits = self.discriminator(
+                [img_ab_fake, img_L], training=False)
             # Calculate the generator loss
-            g_loss = self.g_loss_fn(img_ab_real, img_ab_fake, class_vector_real, class_vector_pred, gen_img_logits)
+            g_loss = self.g_loss_fn(
+                img_ab_real, img_ab_fake, class_vector_real, class_vector_pred, gen_img_logits)
 
         # Get the gradients w.r.t the generator loss
-        gen_gradient = tape.gradient(g_loss, self.generator.trainable_variables)
+        gen_gradient = tape.gradient(
+            g_loss, self.generator.trainable_variables)
         # Update the weights of the generator using the generator optimizer
         self.g_optimizer.apply_gradients(
             zip(gen_gradient, self.generator.trainable_variables)
@@ -80,19 +85,23 @@ class WGAN(keras.Model):
             # Generate fake images
             img_ab_fake, _ = self.generator(img_L_3, training=False)
             # Get the logits for the fake images
-            fake_logits = self.discriminator([img_ab_fake, img_L], training=True)
+            fake_logits = self.discriminator(
+                [img_ab_fake, img_L], training=True)
             # Get the logits for the real images
-            real_logits = self.discriminator([img_ab_real, img_L], training=True)
+            real_logits = self.discriminator(
+                [img_ab_real, img_L], training=True)
 
             # Calculate the discriminator loss using the fake and real image logits
             d_cost = self.d_loss_fn(real_img=real_logits, fake_img=fake_logits)
             # Calculate the gradient penalty
-            gp = self.gradient_penalty(batch_size, img_ab_real, img_ab_fake, img_L)
+            gp = self.gradient_penalty(
+                batch_size, img_ab_real, img_ab_fake, img_L)
             # Add the gradient penalty to the original discriminator loss
             d_loss = d_cost + gp * self.gp_weight
 
             # Get the gradients w.r.t the discriminator loss
-            d_gradient = tape.gradient(d_loss, self.discriminator.trainable_variables)
+            d_gradient = tape.gradient(
+                d_loss, self.discriminator.trainable_variables)
             # Update the weights of the discriminator using the discriminator optimizer
             self.d_optimizer.apply_gradients(
                 zip(d_gradient, self.discriminator.trainable_variables)
@@ -100,9 +109,11 @@ class WGAN(keras.Model):
 
         return {"d_loss": d_loss, "g_loss": g_loss}
 
+
 img_shape_1 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 1)
 img_shape_2 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 2)
 img_shape_3 = (config.IMAGE_SIZE, config.IMAGE_SIZE, 3)
+
 
 def get_discriminator():
     input_ab = Input(shape=img_shape_2, name='ab_input')
@@ -123,6 +134,7 @@ def get_discriminator():
     net = keras.layers.Conv2D(
         1, (4, 4), padding='same', strides=(1, 1))(net)  # 28, 28,1
     return Model([input_ab, input_l], net)
+
 
 def get_generator():
     input_img = Input(shape=img_shape_3)

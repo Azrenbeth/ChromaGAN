@@ -3,11 +3,13 @@ import numpy as np
 import cv2
 import os
 
+
 def deprocess(imgs):
     imgs = imgs * 255
     imgs[imgs > 255] = 255
     imgs[imgs < 0] = 0
     return imgs.astype(np.uint8)
+
 
 def reconstruct(batchX, predictedY, filelist):
     result = np.concatenate((batchX, predictedY), axis=2)
@@ -20,10 +22,12 @@ def reconstruct(batchX, predictedY, filelist):
     cv2.imwrite(save_path, result)
     return result
 
+
 def reconstruct_no(batchX, predictedY):
     result = np.concatenate((batchX, predictedY), axis=2)
     result = cv2.cvtColor(result, cv2.COLOR_Lab2BGR)
     return result
+
 
 def sample_images(colorization_model, test_data, epoch):
     total_batch = int(test_data.size/config.BATCH_SIZE)
