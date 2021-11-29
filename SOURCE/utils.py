@@ -29,7 +29,7 @@ def reconstruct_no(batchX, predictedY):
     return result
 
 
-def sample_images(colorization_model, test_data, epoch):
+def sample_images(colorization_model, test_data, epoch, three_dim=False):
     # reset index so get same images each time
     test_data.data_index = 0
 

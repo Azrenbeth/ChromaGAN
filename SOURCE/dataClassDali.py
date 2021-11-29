@@ -22,20 +22,21 @@ if gpus:
 
 class VideoDataLoader():
     @pipeline_def
-    def video_pipe(filenames, sequence_length, initial_prefetch_size, stride, video_dim):
+    def video_pipe(filenames, sequence_length, initial_prefetch_size, stride, video_dim, random_shuffle):
         videos = fn.readers.video_resize(
             device="gpu",
             filenames=filenames,
             sequence_length=sequence_length,
             initial_fill=initial_prefetch_size,
             image_type=types.DALIImageType.RGB,
-            random_shuffle=True,
+            random_shuffle=random_shuffle,
             stride=stride,
             resize_y=video_dim,
             resize_x=video_dim,
             name="Reader",
             dtype=types.DALIDataType.UINT8,
-            file_list_include_preceding_frame=True
+            file_list_include_preceding_frame=True,
+            skip_vfr_check=True
         )
 
 #         videos_cropped = fn.crop(
@@ -56,12 +57,14 @@ class VideoDataLoader():
 
         return videos_lab
 
-    def __init__(self, data_dir, image_size=224, batch_size=8, sequence_length=8, stride=1):
+    def __init__(self, data_dir, image_size=224, batch_size=8, sequence_length=8, stride=1, combine_batch_and_seq=True, random_shuffle=True):
         self.batch_size = batch_size
         self.sequence_length = sequence_length
         self.video_dim = image_size
+        self.combine_batch_and_seq = combine_batch_and_seq
 
         files = glob.glob(os.path.join(config.DATA_DIR, data_dir, "*.mp4"))
+        assert len(files) > 0, "train data must not be empty"
 
         self.pipe = VideoDataLoader.video_pipe(
             batch_size=batch_size,
@@ -72,7 +75,8 @@ class VideoDataLoader():
             device_id=0,
             filenames=files,
             seed=123456,
-            initial_prefetch_size=256
+            initial_prefetch_size=256,
+            random_shuffle=random_shuffle,
         )
         self.pipe.build()
         meta = self.pipe.reader_meta("Reader")
@@ -85,10 +89,17 @@ class VideoDataLoader():
             shapes=[(self.batch_size, self.sequence_length,
                      self.video_dim, self.video_dim, 3)],
             dtypes=[tf.uint8])[0]
-        image = tf.cast(tf.reshape(image_raw, (self.batch_size * self.sequence_length,
-                        self.video_dim, self.video_dim, 3)), tf.float32) / 255.0
-        image_l = image[:, :, :, 0:1]
-        image_ab = image[:, :, :, 1:]
-        image_l3 = tf.tile(image_l, (1, 1, 1, 3))
+        
+        if self.combine_batch_and_seq:
+            image = tf.cast(tf.reshape(image_raw, (self.batch_size * self.sequence_length,
+                            self.video_dim, self.video_dim, 3)), tf.float32) / 255.0
+            image_l = image[:, :, :, 0:1]
+            image_ab = image[:, :, :, 1:]
+            image_l3 = tf.tile(image_l, (1, 1, 1, 3))
+        else:
+            image = tf.cast(image_raw, tf.float32) / 255.0
+            image_l = image[:, :, :, :, 0:1]
+            image_ab = image[:, :, :, :, 1:]
+            image_l3 = tf.tile(image_l, (1, 1, 1, 1, 3))
 
         return image_l, image_ab, image_l3

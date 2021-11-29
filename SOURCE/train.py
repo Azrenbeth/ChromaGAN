@@ -32,11 +32,11 @@ def train(model, data, test_data):
                   (epoch, batch, total_batch, g_loss, d_loss))
 
         # save models after each epoch
-        # save_path = os.path.join(save_models_path, "my_model_colorization_epoch%d.h5" % epoch)
-        # model.generator.save(save_path)
+        save_path = os.path.join(save_models_path, "my_model_colorization_epoch%d.h5" % epoch)
+        model.generator.save(save_path)
 
         # sample images after each epoch
-        utils.sample_images(model.generator, test_data, epoch)
+        # utils.sample_images(model.generator, test_data, epoch)
 
 
 if __name__ == '__main__':
@@ -49,28 +49,41 @@ if __name__ == '__main__':
     print(f'Loading training data from {config.TRAIN_DIR}...')
     #train_data = data.DATA(config.TRAIN_DIR)
     train_data = data_dali.VideoDataLoader(
-        config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE)
+        config.TRAIN_DIR, config.IMAGE_SIZE, config.BATCH_SIZE, config.SEQUENCE_LENGTH, config.VIDEO_STRIDE, combine_batch_and_seq=not config.TEMPORAL_CONSISTENCY)
     test_data = data.DATA(config.TEST_DIR, batch_size=5)
     assert config.BATCH_SIZE <= train_data.size, "The batch size should be smaller or equal to the number of training images --> modify it in config.py"
     print("Training data loaded")
 
     # Create model
     print("Initializing model...")
-    discriminator = model.get_conv_discriminator()
-    generator = model.get_generator()
 
-    vgg_model = applications.vgg16.VGG16(weights='imagenet', include_top=True)
+    if config.TEMPORAL_CONSISTENCY:
+        discriminator_raw = model.get_conv_discriminator()
+        discriminator = model.get_3d_discriminator(discriminator_raw)
+        generator = model.get_3d_generator()
+        vgg_model = model.get_3d_vgg()
+        d_loss_fn = losses.d_loss_fn_3d
+        g_loss_fn = losses.g_loss_fn_3d
+
+    else:
+        discriminator = model.get_conv_discriminator()
+        generator = model.get_generator()
+        vgg_model = model.get_vgg()
+        d_loss_fn = losses.d_loss_fn
+        g_loss_fn = losses.g_loss_fn
+    
     wgan = model.WGAN(
         discriminator=discriminator,
         generator=generator,
-        vgg_model=vgg_model
+        vgg_model=vgg_model,
+        three_dim=config.TEMPORAL_CONSISTENCY
     )
     optimizer = Adam(0.00002, 0.5)
     wgan.compile(
         d_optimizer=optimizer,
         g_optimizer=optimizer,
-        d_loss_fn=losses.d_loss_fn,
-        g_loss_fn=losses.g_loss_fn
+        d_loss_fn=d_loss_fn,
+        g_loss_fn=g_loss_fn,
     )
     print("Model initialized")
 
