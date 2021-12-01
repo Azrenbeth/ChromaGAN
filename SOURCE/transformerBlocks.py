@@ -11,18 +11,31 @@ tf.compat.v1.experimental.output_all_intermediates(True)
 
 
 class TransformerBlock(layers.Layer):
-    def __init__(self, num_heads, embedding_dimensions, dropout_rate):
+    def __init__(
+        self, 
+        num_heads, 
+        embedding_dimensions,
+        dropout_rate
+    ):
         super().__init__()
         self.layer_norm1 = layers.LayerNormalization(epsilon=1e-6)
         self.layer_norm2 = layers.LayerNormalization(epsilon=1e-6)
         self.att = layers.MultiHeadAttention(
-            num_heads=num_heads, key_dim=embedding_dimensions, dropout=0.1
+            num_heads=num_heads, 
+            key_dim=embedding_dimensions, 
+            dropout=0.1
         )
         self.ffn = keras.Sequential(
             [
-                layers.Dense(2*embedding_dimensions, activation=tf.nn.gelu),
+                layers.Dense(
+                    2*embedding_dimensions, 
+                    activation=tf.nn.gelu
+                ),
                 layers.Dropout(dropout_rate),
-                layers.Dense(embedding_dimensions, activation=tf.nn.gelu),
+                layers.Dense(
+                    embedding_dimensions, 
+                    activation=tf.nn.gelu
+                ),
                 layers.Dropout(dropout_rate),
             ]
         )

@@ -32,7 +32,7 @@ def train(model, data, test_data):
                   (epoch, batch, total_batch, g_loss, d_loss))
 
         # save models after each epoch
-        # save_path = os.path.join(save_models_path, "my_model_colorization_epoch%d.h5" % epoch)
+        save_path = os.path.join(save_models_path, "my_model_colorization_epoch%d.h5" % epoch)
         model.generator.save(save_path)
 
         # sample images after each epoch
