@@ -2,7 +2,7 @@ import os
 
 # DIRECTORY INFORMATION
 # DATASET = "imagenet" # UPDATE
-DATASET = "giraffe"  #  UPDATE
+DATASET = "lion"  #  UPDATE
 TEST_NAME = "FirstTest"
 ROOT_DIR = os.path.abspath('../')
 DATA_DIR = os.path.join(ROOT_DIR, 'DATASET/'+DATASET+'/')
@@ -22,4 +22,4 @@ VIDEO_STRIDE = 1
 
 # TRAINING INFORMATION
 PRETRAINED = "modelCombined.h5"  #  UPDATE
-NUM_EPOCHS = 10
+NUM_EPOCHS = 50

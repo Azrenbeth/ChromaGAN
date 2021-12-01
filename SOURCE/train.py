@@ -33,7 +33,7 @@ def train(model, data, test_data):
 
         # save models after each epoch
         # save_path = os.path.join(save_models_path, "my_model_colorization_epoch%d.h5" % epoch)
-        # model.generator.save(save_path)
+        model.generator.save(save_path)
 
         # sample images after each epoch
         utils.sample_images(model.generator, test_data, epoch)
@@ -56,7 +56,8 @@ if __name__ == '__main__':
 
     # Create model
     print("Initializing model...")
-    discriminator = model.get_conv_discriminator()
+    # discriminator = model.get_conv_discriminator()
+    discriminator = model.get_trans_discriminator()
     generator = model.get_generator()
 
     vgg_model = applications.vgg16.VGG16(weights='imagenet', include_top=True)
