@@ -11,13 +11,14 @@ from tqdm import tqdm
 
 SEQUENCE_LENGTH=4
 BATCH_SIZE=4
+STRIDE=1
 
 if __name__=='__main__':
     model_filename = os.path.join(config.MODEL_DIR, config.TEST_NAME, config.PRETRAINED)
     model = keras.models.load_model(model_filename, custom_objects={ "GeneratorCell": model.GeneratorCell })
 
     test_data_dir = os.path.join(config.DATA_DIR, config.TEST_DIR)
-    test_data = data.VideoDataLoader(test_data_dir, config.IMAGE_SIZE, BATCH_SIZE, SEQUENCE_LENGTH, 8, combine_batch_and_seq=not config.TEMPORAL_CONSISTENCY, random_shuffle=False)
+    test_data = data.VideoDataLoader(test_data_dir, config.IMAGE_SIZE, BATCH_SIZE, SEQUENCE_LENGTH, STRIDE, combine_batch_and_seq=not config.TEMPORAL_CONSISTENCY, random_shuffle=False)
 
     out_filename = os.path.join(config.OUT_DIR, config.TEST_NAME, "output.mp4")
     os.makedirs(os.path.dirname(out_filename), exist_ok=True)
