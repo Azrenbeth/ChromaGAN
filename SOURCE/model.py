@@ -243,16 +243,13 @@ def get_generator(with_interframe_conn=False):
         [midlevel_features, global_features2])
     
     if with_interframe_conn:
-        last_frame_state = Input(shape=(28, 28, 512), name='last_frame_state')
-
-        modelFusionWithLastState = keras.layers.concatenate([modelFusion, last_frame_state])
-        modelFusionWithLastState = keras.layers.Conv2D(512, (3, 3), padding='same', strides=(1, 1), activation='relu')(modelFusionWithLastState)
-    else:
-        modelFusionWithLastState = modelFusion
+        last_model_fusion = Input(shape=(28, 28, 512), name='last_model_fusion')
+        modelFusion = keras.layers.concatenate([modelFusion, last_model_fusion])
+        modelFusion = keras.layers.Conv2D(512, (3, 3), padding='same', strides=(1, 1), activation='tanh')(modelFusion)
 
     # Fusion + Colorization
     outputModel = keras.layers.Conv2D(
-        256, (1, 1), padding='same', strides=(1, 1), activation='relu')(modelFusionWithLastState)
+        256, (1, 1), padding='same', strides=(1, 1), activation='relu')(modelFusion)
     outputModel = keras.layers.Conv2D(
         128, (3, 3), padding='same', strides=(1, 1), activation='relu')(outputModel)
 
@@ -270,7 +267,7 @@ def get_generator(with_interframe_conn=False):
     outputModel = keras.layers.UpSampling2D(size=(2, 2))(outputModel)
 
     if with_interframe_conn:
-        final_model = Model(inputs=[input_img, last_frame_state], outputs=[
+        final_model = Model(inputs=[input_img, last_model_fusion], outputs=[
                             outputModel, global_featuresClass, modelFusion], name="generator_w_interframe_conn")
     else:
         final_model = Model(inputs=[input_img], outputs=[
